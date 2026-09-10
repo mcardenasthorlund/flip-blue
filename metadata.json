@@ -1,0 +1,6 @@
+{
+  "name": "FlipBlue Reader & Generator",
+  "description": "Herramienta PWA para gestionar libros basados en imágenes PNG localmente y exportarlos como paquetes web autónomos con efecto Flip-Page mediante StPageFlip y Panzoom.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
