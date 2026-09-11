@@ -2,7 +2,7 @@ import Sortable from 'sortablejs';
 import { formatPageFileName, getBook, getBookPages, saveBook } from '../db/db';
 import { exportBookAsZip } from '../utils/exportGenerator';
 import { showToast } from '../components/Toast';
-import { optimizeImageBlob, renderPdfToBlobs } from '../utils/mediaProcessor';
+import { detectAndStraightenPage, optimizeImageBlob, renderPdfToBlobs } from '../utils/mediaProcessor';
 import type { EditorPageState } from '../types';
 
 export interface EditorCallbacks {
@@ -21,6 +21,8 @@ export class EditorView {
   private hardCover = true;
   private singlePageMode = false;
   private autoOptimize = true;
+  private detectEdges = false;
+  private straighteningTempId: string | null = null;
   private isProcessingPdf = false;
   private pdfStatusText = '';
 
@@ -350,6 +352,17 @@ export class EditorView {
             <span class="font-medium text-[11px]">⚡ Optimizar (máx. 1920px)</span>
           </label>
 
+          <!-- Edge Detection Toggle -->
+          <label class="flex items-center gap-1.5 text-xs text-slate-700 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 cursor-pointer shadow-2xs" title="Detectar los bordes de la hoja, corregir su orientación y recortar la imagen">
+            <input
+              id="ed-detect-toggle"
+              type="checkbox"
+              ${this.detectEdges ? 'checked' : ''}
+              class="rounded text-blue-600 h-3.5 w-3.5"
+            />
+            <span class="font-medium text-[11px]">📄 Corregir hoja</span>
+          </label>
+
           <!-- PDF Import Button -->
           <button
             id="ed-import-pdf-btn"
@@ -489,6 +502,19 @@ export class EditorView {
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </button>
+
+            <!-- Straighten Page Action -->
+            <button
+              data-straighten-id="${page.tempId}"
+              class="absolute bottom-1.5 right-1.5 p-1 rounded bg-white/90 hover:bg-blue-600 hover:text-white text-slate-400 opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer"
+              title="Detectar bordes, corregir orientación y recortar esta hoja"
+              ${this.straighteningTempId === page.tempId ? 'disabled' : ''}
+            >
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
+                <path d="M18 22V8a2 2 0 0 0-2-2H2"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -615,6 +641,14 @@ export class EditorView {
       });
     }
 
+    // Edge detection toggle
+    const detectToggle = this.container.querySelector<HTMLInputElement>('#ed-detect-toggle');
+    if (detectToggle) {
+      detectToggle.addEventListener('change', (e) => {
+        this.detectEdges = (e.target as HTMLInputElement).checked;
+      });
+    }
+
     // PDF button & input
     const pdfBtn = this.container.querySelector<HTMLButtonElement>('#ed-import-pdf-btn');
     const pdfInput = this.container.querySelector<HTMLInputElement>('#ed-pdf-input');
@@ -693,6 +727,15 @@ export class EditorView {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.deletePage(tempId!);
+      });
+    });
+
+    // Straighten per-page buttons
+    this.container.querySelectorAll<HTMLElement>('[data-straighten-id]').forEach((btn) => {
+      const tempId = btn.getAttribute('data-straighten-id');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.handleStraightenPage(tempId!);
       });
     });
   }
@@ -775,13 +818,23 @@ export class EditorView {
         let width: number;
         let height: number;
 
+        if (this.detectEdges) {
+          const straightened = await detectAndStraightenPage(file);
+          finalBlob = straightened.blob;
+          width = straightened.width;
+          height = straightened.height;
+        } else {
+          width = 0;
+          height = 0;
+        }
+
         if (this.autoOptimize) {
-          const optimized = await optimizeImageBlob(file, 1920);
+          const optimized = await optimizeImageBlob(finalBlob, 1920);
           finalBlob = optimized.blob;
           width = optimized.width;
           height = optimized.height;
-        } else {
-          const dims = await this.readImageDimensions(file);
+        } else if (width === 0) {
+          const dims = await this.readImageDimensions(finalBlob);
           width = dims.width;
           height = dims.height;
         }
@@ -823,6 +876,51 @@ export class EditorView {
       this.calculateAspectRatio();
       this.render();
       showToast({ message: 'Página eliminada', type: 'info' });
+    }
+  }
+
+  private async handleStraightenPage(tempId: string) {
+    const page = this.pages.find((p) => p.tempId === tempId);
+    if (!page || this.straighteningTempId) return;
+
+    this.straighteningTempId = tempId;
+    this.render();
+
+    try {
+      const result = await detectAndStraightenPage(page.blob);
+
+      // If unchanged, the algorithm could not reliably detect edges.
+      if (result.blob === page.blob) {
+        showToast({ message: 'No se pudieron detectar los bordes de la hoja. Se mantiene la imagen original.', type: 'warning' });
+        return;
+      }
+
+      if (page.previewUrl) URL.revokeObjectURL(page.previewUrl);
+
+      let finalBlob = result.blob;
+      let width = result.width;
+      let height = result.height;
+
+      if (this.autoOptimize) {
+        const optimized = await optimizeImageBlob(finalBlob, 1920);
+        finalBlob = optimized.blob;
+        width = optimized.width;
+        height = optimized.height;
+      }
+
+      page.blob = finalBlob;
+      page.width = width;
+      page.height = height;
+      page.previewUrl = URL.createObjectURL(finalBlob);
+
+      this.calculateAspectRatio();
+      showToast({ message: 'Hoja corregida y recortada correctamente.', type: 'success' });
+    } catch (err) {
+      console.error('Straighten failed:', err);
+      showToast({ message: 'Error al corregir la hoja.', type: 'error' });
+    } finally {
+      this.straighteningTempId = null;
+      this.render();
     }
   }
 
