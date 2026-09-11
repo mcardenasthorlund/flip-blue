@@ -518,6 +518,7 @@ export class ReaderView {
         autoSize: true,
         maxShadowOpacity: 0.4,
         mobileScrollSupport: false,
+        useTouchEvents: !isMobile,
       });
 
       const items = flipbookEl.querySelectorAll<HTMLElement>('.flip-page');
