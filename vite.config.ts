@@ -17,6 +17,7 @@ export default defineConfig(() => {
           name: 'FlipBlue Reader & Generator',
           short_name: 'FlipBlue',
           description: 'A PWA tool to manage PNG-based books locally and export them as standalone Flip-Page web packages.',
+          version: '0.3-beta',
           theme_color: '#2563EB',
           background_color: '#F8FAFC',
           display: 'standalone',
