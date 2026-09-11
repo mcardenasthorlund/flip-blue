@@ -1,5 +1,6 @@
 import { Navbar } from './components/Navbar';
 import { showToast } from './components/Toast';
+import { showWelcomeIfNeeded } from './components/WelcomeModal';
 import { getAllBooks } from './db/db';
 import { initPWA, onUpdateAvailable } from './pwa';
 import { seedSampleBook } from './utils/sampleBook';
@@ -12,6 +13,7 @@ export class AppController {
   private container: HTMLElement;
   private currentView: AppView = 'dashboard';
   private activeBookId?: number;
+  private pendingNewBookFolderId?: number | null;
 
   private navbar: Navbar;
   private dashboardView: DashboardView;
@@ -24,6 +26,9 @@ export class AppController {
 
     // 1. Initialize PWA
     initPWA();
+
+    // 1b. Welcome tutorial for first-time users (skip via "No volver a mostrar")
+    showWelcomeIfNeeded();
 
     // 2. Service Worker Update Notification toast
     onUpdateAvailable((reload) => {
@@ -48,6 +53,7 @@ export class AppController {
       },
       onNewBook: () => {
         this.activeBookId = undefined;
+        this.pendingNewBookFolderId = null;
         this.setView('editor');
       },
       onSampleBook: async () => {
@@ -65,12 +71,19 @@ export class AppController {
           showToast({ message: 'Error al generar el libro demo', type: 'error' });
         }
       },
+      onBackup: () => {
+        this.dashboardView.handleBackup();
+      },
+      onRestore: () => {
+        this.dashboardView.triggerRestore();
+      },
     });
 
     // 4. Initialize Views
     this.dashboardView = new DashboardView({
-      onNewBook: () => {
+      onNewBook: (folderId?: number | null) => {
         this.activeBookId = undefined;
+        this.pendingNewBookFolderId = folderId ?? null;
         this.setView('editor');
       },
       onEditBook: (bookId) => {
@@ -141,7 +154,7 @@ export class AppController {
     } else if (this.currentView === 'editor') {
       this.container.appendChild(this.navbar.getElement());
       this.container.appendChild(this.editorView.getElement());
-      this.editorView.load(this.activeBookId);
+      this.editorView.load(this.activeBookId, this.pendingNewBookFolderId);
     } else if (this.currentView === 'reader') {
       if (this.activeBookId) {
         this.container.appendChild(this.readerView.getElement());

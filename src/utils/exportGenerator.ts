@@ -706,6 +706,12 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
   let detectedRatio = 1.414;
   let currentPageIndex = 0;
 
+  // Capture the page markup once so it can be re-injected when the flipbook is
+  // rebuilt (destroy() removes #flipbook and its children from the DOM).
+  const pageNodesHtml = Array.from(document.querySelectorAll('.flip-page'))
+    .map((el) => el.outerHTML)
+    .join('\\n');
+
   // 1. Mandatory Pre-loading of all PNGs into browser cache
   function preloadImages() {
     return new Promise((resolve) => {
@@ -754,6 +760,7 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
       const freshFlipbook = document.createElement('div');
       freshFlipbook.id = 'flipbook';
       freshFlipbook.className = 'flipbook';
+      freshFlipbook.innerHTML = pageNodesHtml;
       if (oldFlipbook) { oldFlipbook.remove(); }
       bookWrapper.appendChild(freshFlipbook);
       flipbookEl = freshFlipbook;

@@ -10,6 +10,15 @@ export interface BookRecord {
   brandName?: string;    // Custom author / company brand
   hardCover?: boolean;   // Rigid covers for first & last pages
   singlePageMode?: boolean; // Default single page vs double spread
+  folderId?: number | null; // null/undefined = loose book in current level
+}
+
+export interface FolderRecord {
+  id?: number;
+  name: string;
+  parentId?: number | null; // null/undefined = root level
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface PageRecord {

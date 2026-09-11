@@ -5,6 +5,8 @@ export interface NavbarCallbacks {
   onNavigate: (view: AppView) => void;
   onNewBook: () => void;
   onSampleBook: () => void;
+  onBackup: () => void;
+  onRestore: () => void;
 }
 
 export class Navbar {
@@ -13,6 +15,7 @@ export class Navbar {
   private callbacks: NavbarCallbacks;
   private isOnline = true;
   private canInstall = false;
+  private outsideListenerAdded = false;
 
   constructor(callbacks: NavbarCallbacks) {
     this.callbacks = callbacks;
@@ -57,7 +60,7 @@ export class Navbar {
                 <span class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 group-hover:text-slate-800 transition-colors leading-tight">Flip<span class="text-[#2563EB]">Blue</span></span>
                 <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#2563EB] px-1 sm:px-1.5 py-0.5 rounded border border-blue-100/80">PWA</span>
               </div>
-              <span class="text-[9px] sm:text-[10px] font-mono text-slate-400 font-medium tracking-tight">v0.3-beta</span>
+              <span class="text-[9px] sm:text-[10px] font-mono text-slate-400 font-medium tracking-tight">v0.5-beta</span>
             </div>
           </button>
         </div>
@@ -98,7 +101,54 @@ export class Navbar {
           ${
             this.currentView === 'dashboard'
               ? `
-            <button id="nav-sample-btn" class="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer shrink-0 whitespace-nowrap" title="Cargar libro demo con páginas de ejemplo">
+            <!-- Mobile hamburger menu -->
+            <div class="relative shrink-0 lg:hidden">
+              <button id="nav-menu-btn" class="flex items-center justify-center w-9 h-9 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-[#2563EB] transition cursor-pointer" title="Menú" aria-label="Menú">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="4" y1="7" x2="20" y2="7"></line>
+                  <line x1="4" y1="12" x2="20" y2="12"></line>
+                  <line x1="4" y1="17" x2="20" y2="17"></line>
+                </svg>
+              </button>
+              <div id="nav-mobile-menu" class="hidden absolute right-0 top-full mt-2 w-64 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+                <div class="p-1.5">
+                  <button data-nav-action="backup" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left">
+                    <svg class="w-4 h-4 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Copia de seguridad</span>
+                  </button>
+                  <button data-nav-action="restore" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left">
+                    <svg class="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>Restaurar copia</span>
+                  </button>
+                  <div class="h-px bg-slate-100 my-1.5"></div>
+                  <button data-nav-action="new" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-[#2563EB] hover:bg-blue-50 transition cursor-pointer text-left">
+                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Nuevo libro</span>
+                  </button>
+                  <button data-nav-action="demo" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left">
+                    <svg class="w-4 h-4 text-[#2563EB] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                      <line x1="8" y1="21" x2="16" y2="21"></line>
+                      <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                    <span>Libro demo</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button id="nav-sample-btn" class="hidden lg:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer shrink-0 whitespace-nowrap" title="Cargar libro demo con páginas de ejemplo">
               <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#2563EB] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                 <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -108,7 +158,7 @@ export class Navbar {
               <span class="sm:hidden">Demo</span>
             </button>
 
-            <button id="nav-new-btn" class="bg-[#2563EB] text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 flex items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0 whitespace-nowrap" title="Crear nuevo libro">
+            <button id="nav-new-btn" class="hidden lg:flex bg-[#2563EB] text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200 items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0 whitespace-nowrap" title="Crear nuevo libro">
               <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -152,6 +202,41 @@ export class Navbar {
     this.element.querySelector('#nav-new-btn')?.addEventListener('click', () => {
       this.callbacks.onNewBook();
     });
+
+    // Mobile hamburger menu
+    const menuBtn = this.element.querySelector<HTMLElement>('#nav-menu-btn');
+    const menu = this.element.querySelector<HTMLElement>('#nav-mobile-menu');
+    if (menuBtn && menu) {
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+      });
+
+      menu.querySelectorAll<HTMLElement>('[data-nav-action]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          menu.classList.add('hidden');
+          const action = btn.getAttribute('data-nav-action');
+          if (action === 'backup') this.callbacks.onBackup();
+          else if (action === 'restore') this.callbacks.onRestore();
+          else if (action === 'demo') this.callbacks.onSampleBook();
+          else if (action === 'new') this.callbacks.onNewBook();
+        });
+      });
+    }
+
+    // Close mobile menu when clicking outside
+    if (!this.outsideListenerAdded) {
+      this.outsideListenerAdded = true;
+      document.addEventListener('click', (e) => {
+        const menuEl = this.element.querySelector<HTMLElement>('#nav-mobile-menu');
+        const btnEl = this.element.querySelector<HTMLElement>('#nav-menu-btn');
+        if (!menuEl || !btnEl) return;
+        const t = e.target as Node;
+        if (!menuEl.contains(t) && !btnEl.contains(t)) {
+          menuEl.classList.add('hidden');
+        }
+      });
+    }
 
     this.updateInstallButton();
   }

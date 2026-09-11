@@ -2,6 +2,7 @@
   <img width="96" height="96" alt="FlipBlue Logo" src="public/icon.svg" />
   <h1>FlipBlue Reader &amp; Generator</h1>
   <p><em>Flipbook interactivos offline-first con efecto página · StPageFlip + Panzoom</em></p>
+  <p><strong>v0.5-beta</strong></p>
 </div>
 
 FlipBlue es una **PWA offline-first** (Vite + React + TypeScript + Tailwind) que permite gestionar libros basados en imágenes PNG de forma local (IndexedDB) y exportarlos como **paquetes web autónomos** con efecto flip-page mediante StPageFlip y Panzoom, sin dependencias de CDN.
@@ -15,13 +16,19 @@ La aplicación está desplegada en producción en:
 ## ✨ Características
 
 - 📚 Gestión local de publicaciones (crear, editar, clonar, eliminar).
+- 🗂️ **Carpetas anidadas**: crea carpetas dentro de carpetas para organizar tu biblioteca, con navegación por subcarpeta (breadcrumb) y libros sueltos en cualquier nivel.
+- 📦 **Mover libros y carpetas** entre ubicaciones mediante un selector jerárquico de destino.
 - 🖼️ Carga masiva de páginas PNG con renombrado automático secuencial (`001.png`, `002.png`…).
 - 📄 Importación y renderizado de PDF a páginas PNG de alta resolución.
 - 🔄 Reordenación de páginas con arrastrar y soltar (drag & drop).
 - 📖 Visor interactivo con efecto flip-page, modo 1 página / spread, zoom (panzoom) y miniaturas.
 - 🛍️ Exportación a un único **ZIP autónomo** (HTML/CSS/JS + imágenes, sin CDN) listo para cualquier hosting.
-- 💾 Copias de seguridad y restauración completas de la biblioteca en IndexedDB.
+- 💾 Copias de seguridad y restauración completas de la biblioteca (incluye carpetas y su estructura) en IndexedDB.
 - 📴 Funciona sin conexión (service worker / PWA).
+- 🗂️ Biblioteca en **cuadrícula o lista horizontal**, con la preferencia guardada entre sesiones.
+- 📱 En móvil, las acciones principales se agrupan en un **menú hamburguesa** (copia de seguridad, restaurar, nuevo libro y libro demo).
+- 👋 **Tutorial de bienvenida** en carrusel para nuevos usuarios, con opción de saltarlo y "no volver a mostrar" (reaccesible desde el pie de página).
+- 📱 En móvil se desactiva el volteo de páginas por arrastre táctil para evitar interferencias con el gesto de zoom.
 
 ## 🧰 Stack
 
