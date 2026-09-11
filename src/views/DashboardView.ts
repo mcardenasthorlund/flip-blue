@@ -229,7 +229,7 @@ export class DashboardView {
           </span>
         </div>
         <div class="flex items-center gap-1.5 text-xs text-slate-500">
-          <span class="text-[10px] font-mono text-slate-400">v0.2-beta</span>
+          <span class="text-[10px] font-mono text-slate-400">v0.3-beta</span>
           <span class="w-1 h-1 rounded-full bg-slate-300"></span>
           <span>
             Licencia
