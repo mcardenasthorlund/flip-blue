@@ -60,7 +60,7 @@ export class Navbar {
                 <span class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 group-hover:text-slate-800 transition-colors leading-tight">Flip<span class="text-[#2563EB]">Blue</span></span>
                 <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#2563EB] px-1 sm:px-1.5 py-0.5 rounded border border-blue-100/80">PWA</span>
               </div>
-              <span class="text-[9px] sm:text-[10px] font-mono text-slate-400 font-medium tracking-tight">v0.5-beta</span>
+              <span class="text-[9px] sm:text-[10px] font-mono text-slate-400 font-medium tracking-tight">v0.6-beta</span>
             </div>
           </button>
         </div>

@@ -382,7 +382,7 @@ export class DashboardView {
           </span>
         </div>
         <div class="flex items-center gap-1.5 text-xs text-slate-500">
-          <span class="text-[10px] font-mono text-slate-400">v0.5-beta</span>
+          <span class="text-[10px] font-mono text-slate-400">v0.6-beta</span>
           <span class="w-1 h-1 rounded-full bg-slate-300"></span>
           <span>
             Licencia
@@ -412,7 +412,7 @@ export class DashboardView {
               ${bookCount} ${bookCount === 1 ? 'libro' : 'libros'}
             </span>
           </div>
-          <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          <div class="absolute top-2 right-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1">
             <button data-folder-action="rename" title="Renombrar carpeta" class="p-1.5 rounded-md bg-white/95 hover:bg-white text-slate-600 hover:text-[#2563EB] shadow-xs transition cursor-pointer">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
@@ -654,8 +654,11 @@ export class DashboardView {
 
             <!-- Actions row -->
             <div class="flex items-center gap-1 sm:shrink-0 sm:border-l sm:border-slate-100 sm:pl-4">
-              <button data-action="read" class="px-3 py-1.5 rounded-md bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition cursor-pointer">
-                Abrir lector
+              <button data-action="read" title="Abrir lector" class="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition cursor-pointer">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"></polygon>
+                </svg>
+                <span class="hidden sm:inline">Abrir lector</span>
               </button>
               <button data-action="clone" title="Duplicar publicación y todas sus páginas" class="p-2 rounded-lg text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -2,7 +2,7 @@
   <img width="96" height="96" alt="FlipBlue Logo" src="public/icon.svg" />
   <h1>FlipBlue Reader &amp; Generator</h1>
   <p><em>Flipbook interactivos offline-first con efecto página · StPageFlip + Panzoom</em></p>
-  <p><strong>v0.5-beta</strong></p>
+  <p><strong>v0.6-beta</strong></p>
 </div>
 
 FlipBlue es una **PWA offline-first** (Vite + React + TypeScript + Tailwind) que permite gestionar libros basados en imágenes PNG de forma local (IndexedDB) y exportarlos como **paquetes web autónomos** con efecto flip-page mediante StPageFlip y Panzoom, sin dependencias de CDN.

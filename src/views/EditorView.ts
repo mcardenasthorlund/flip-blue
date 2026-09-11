@@ -160,32 +160,32 @@ export class EditorView {
           ${
             this.bookId && this.pages.length > 0
               ? `
-            <button id="ed-preview-btn" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition cursor-pointer">
+            <button id="ed-preview-btn" title="Abrir lector" class="flex items-center justify-center gap-2 px-2.5 sm:px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition cursor-pointer">
               <svg class="w-4 h-4 text-[#2563EB]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
-              <span>Abrir lector</span>
+              <span class="hidden sm:inline">Abrir lector</span>
             </button>
 
-            <button id="ed-export-btn" class="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#2563EB] text-sm font-semibold transition cursor-pointer">
+            <button id="ed-export-btn" title="Exportar como paquete ZIP autónomo" class="flex items-center justify-center gap-2 px-2.5 sm:px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#2563EB] text-sm font-semibold transition cursor-pointer">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
-              <span>Exportar ZIP</span>
+              <span class="hidden sm:inline">Exportar ZIP</span>
             </button>
             `
               : ''
           }
 
-          <button id="ed-save-btn" class="bg-[#2563EB] text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50" ${this.isSaving ? 'disabled' : ''}>
+          <button id="ed-save-btn" title="Guardar libro" class="bg-[#2563EB] text-white px-2.5 sm:px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50" ${this.isSaving ? 'disabled' : ''}>
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
               <polyline points="17 21 17 13 7 13 7 21"></polyline>
               <polyline points="7 3 7 8 15 8"></polyline>
             </svg>
-            <span>${this.isSaving ? 'Guardando...' : 'Guardar libro'}</span>
+            <span class="hidden sm:inline">${this.isSaving ? 'Guardando...' : 'Guardar libro'}</span>
           </button>
         </div>
       </div>
