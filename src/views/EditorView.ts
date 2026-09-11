@@ -483,7 +483,7 @@ export class EditorView {
             <!-- Delete Page Action -->
             <button
               data-delete-id="${page.tempId}"
-              class="absolute top-1.5 left-1.5 p-1 rounded bg-white/90 hover:bg-red-500 hover:text-white text-slate-400 opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer"
+              class="absolute top-1.5 left-1.5 p-1 rounded bg-white/90 hover:bg-red-500 hover:text-white text-slate-400 sm:opacity-0 sm:group-hover:opacity-100 transition shadow-xs cursor-pointer"
               title="Eliminar esta página"
             >
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
