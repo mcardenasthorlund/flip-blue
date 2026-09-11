@@ -16,11 +16,15 @@ export class DashboardView {
   private searchQuery = '';
   private coverUrlMap = new Map<number, string>();
   private isLoading = true;
+  private viewMode: 'grid' | 'list' = 'grid';
+  private static STORAGE_KEY = 'flipblue-dashboard-view-mode';
 
   constructor(callbacks: DashboardCallbacks) {
     this.callbacks = callbacks;
     this.container = document.createElement('div');
     this.container.className = 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full';
+    const saved = localStorage.getItem(DashboardView.STORAGE_KEY);
+    this.viewMode = saved === 'list' ? 'list' : 'grid';
   }
 
   getElement(): HTMLElement {
@@ -141,6 +145,39 @@ export class DashboardView {
               <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span>IndexedDB activo</span>
             </div>
+            <div class="h-4 w-px bg-slate-200"></div>
+
+            <!-- View Mode Toggle -->
+            <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                id="dash-view-grid"
+                class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${this.viewMode === 'grid' ? 'bg-white text-[#2563EB] shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                title="Vista en cuadrícula"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="7" height="7" x="3" y="3" rx="1"></rect>
+                  <rect width="7" height="7" x="14" y="3" rx="1"></rect>
+                  <rect width="7" height="7" x="14" y="14" rx="1"></rect>
+                  <rect width="7" height="7" x="3" y="14" rx="1"></rect>
+                </svg>
+                <span class="hidden sm:inline">Cuadrícula</span>
+              </button>
+              <button
+                id="dash-view-list"
+                class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${this.viewMode === 'list' ? 'bg-white text-[#2563EB] shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                title="Vista horizontal (lista)"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                <span class="hidden sm:inline">Horizontal</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -167,7 +204,13 @@ export class DashboardView {
           </p>
         </div>
       `
-          : `
+          : this.viewMode === 'list'
+            ? `
+        <div class="flex flex-col gap-4">
+          ${filteredBooks.map((book) => this.renderBookRow(book)).join('')}
+        </div>
+      `
+            : `
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           ${filteredBooks.map((book) => this.renderBookCard(book)).join('')}
         </div>
@@ -312,6 +355,100 @@ export class DashboardView {
     `;
   }
 
+  private renderBookRow(book: BookRecord): string {
+    const coverUrl = book.id ? this.coverUrlMap.get(book.id) : undefined;
+    const dateFormatted = new Date(book.updatedAt).toLocaleDateString('es-ES', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    return `
+      <div class="group bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200" data-book-id="${book.id}">
+        <div class="flex flex-row">
+          <!-- Cover Thumbnail -->
+          <div class="relative w-28 sm:w-32 shrink-0 aspect-3/4 sm:aspect-auto sm:h-40 bg-slate-100 overflow-hidden cursor-pointer border-r border-slate-100" data-action="read">
+            ${
+              coverUrl
+                ? `<img src="${coverUrl}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" />`
+                : `<div class="w-full h-full flex flex-col items-center justify-center p-4 text-slate-400 bg-slate-50">
+                    <svg class="w-8 h-8 mb-1 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+                    </svg>
+                    <span class="text-[10px] font-medium">Sin portada</span>
+                  </div>`
+            }
+            <div class="absolute top-2 left-2 flex items-center gap-1">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#2563EB] text-white shadow-xs">Portada</span>
+            </div>
+          </div>
+
+          <!-- Book Metadata -->
+          <div class="p-4 flex-1 flex flex-col sm:flex-row sm:items-center gap-4 min-w-0">
+            <div class="flex-1 min-w-0">
+              <h3 class="font-bold text-base text-slate-900 line-clamp-1 group-hover:text-[#2563EB] transition-colors" title="${escapeHtml(book.title)}">
+                ${escapeHtml(book.title)}
+              </h3>
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1">
+                ${
+                  book.primaryColor
+                    ? `<span class="w-2.5 h-2.5 rounded-full border border-white shadow-2xs inline-block" style="background-color: ${book.primaryColor}" title="Color de marca: ${book.primaryColor}"></span>`
+                    : ''
+                }
+                ${
+                  book.brandName
+                    ? `<span class="text-[10px] font-semibold text-slate-500 truncate max-w-[140px]">${escapeHtml(book.brandName)}</span>`
+                    : ''
+                }
+                <span class="text-[9px] font-medium px-1.5 py-0.2 rounded ${book.hardCover !== false ? 'bg-slate-100 text-slate-600' : 'bg-slate-50 text-slate-400'}">
+                  ${book.hardCover !== false ? 'Tapa dura' : 'Tapa blanda'}
+                </span>
+                <span class="text-[10px] font-semibold text-slate-500">${book.pageCount} ${book.pageCount === 1 ? 'Página' : 'Páginas'}</span>
+              </div>
+              <p class="mt-1.5 text-xs text-slate-500 line-clamp-2 leading-relaxed max-w-2xl">
+                ${escapeHtml(book.description || 'Sin descripción definida.')}
+              </p>
+              <div class="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                <span class="font-mono text-[11px]">${dateFormatted}</span>
+              </div>
+            </div>
+
+            <!-- Actions row -->
+            <div class="flex items-center gap-1 sm:shrink-0 sm:border-l sm:border-slate-100 sm:pl-4">
+              <button data-action="read" class="px-3 py-1.5 rounded-md bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition cursor-pointer">
+                Abrir lector
+              </button>
+              <button data-action="clone" title="Duplicar publicación y todas sus páginas" class="p-2 rounded-lg text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="13" height="13" x="9" y="9" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+              <button data-action="export" title="Exportar como paquete web ZIP autónomo" class="p-2 rounded-lg text-slate-500 hover:text-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
+              <button data-action="edit" title="Editar metadatos y reordenar páginas" class="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                </svg>
+              </button>
+              <button data-action="delete" title="Eliminar publicación y liberar espacio en IndexedDB" class="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private elementEvents() {
     // Search input
     const searchInput = this.container.querySelector<HTMLInputElement>('#dash-search');
@@ -325,6 +462,20 @@ export class DashboardView {
           updatedInput.focus();
           updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
         }
+      });
+    }
+
+    // View mode toggles
+    const gridBtn = this.container.querySelector<HTMLButtonElement>('#dash-view-grid');
+    const listBtn = this.container.querySelector<HTMLButtonElement>('#dash-view-list');
+    if (gridBtn) {
+      gridBtn.addEventListener('click', () => {
+        this.setViewMode('grid');
+      });
+    }
+    if (listBtn) {
+      listBtn.addEventListener('click', () => {
+        this.setViewMode('list');
       });
     }
 
@@ -370,6 +521,13 @@ export class DashboardView {
         });
       });
     });
+  }
+
+  private setViewMode(mode: 'grid' | 'list') {
+    if (this.viewMode === mode) return;
+    this.viewMode = mode;
+    localStorage.setItem(DashboardView.STORAGE_KEY, mode);
+    this.render();
   }
 
   private async handleBackup() {
