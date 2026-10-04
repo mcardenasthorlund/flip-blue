@@ -2,6 +2,7 @@ import { PageFlip } from 'page-flip';
 import Panzoom, { type PanzoomObject } from '@panzoom/panzoom';
 import { getBook, getBookPages } from '../db/db';
 import { exportBookAsZip } from '../utils/exportGenerator';
+import { shareBookFile } from '../utils/share';
 import { showToast } from '../components/Toast';
 import type { BookRecord, PageRecord } from '../types';
 
@@ -175,6 +176,18 @@ export class ReaderView {
           </svg>
           <span class="hidden sm:inline">Exportar ZIP</span>
           <span class="sm:hidden">Exportar</span>
+        </button>
+
+        <button id="reader-share-btn" class="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-white shadow-xs text-xs font-semibold transition cursor-pointer shrink-0 whitespace-nowrap hover:opacity-90" style="background-color: ${primaryColor};" title="Compartir libro con otro dispositivo (WhatsApp, correo...)">
+          <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          <span class="hidden sm:inline">Compartir</span>
+          <span class="sm:hidden">Compartir</span>
         </button>
       </div>
 
@@ -698,6 +711,10 @@ export class ReaderView {
       this.handleExport();
     });
 
+    this.container.querySelector('#reader-share-btn')?.addEventListener('click', () => {
+      this.handleShare();
+    });
+
     this.container.querySelector('#ctrl-prev-btn')?.addEventListener('click', () => {
       this.pageFlipInstance?.flipPrev();
     });
@@ -780,6 +797,32 @@ export class ReaderView {
         document.exitFullscreen().catch(() => {});
       }
     });
+  }
+
+  private async handleShare() {
+    if (!this.book || this.pages.length === 0 || !this.bookId) return;
+    const toastDismiss = showToast({
+      message: `Empaquetando "${this.book.title}" para compartir...`,
+      type: 'info',
+      duration: 0,
+    });
+
+    try {
+      const outcome = await shareBookFile(this.bookId, this.book.title);
+      toastDismiss();
+      if (outcome === 'shared') {
+        showToast({ message: '¡Compartición iniciada!', type: 'success' });
+      } else if (outcome === 'downloaded') {
+        showToast({
+          message: 'Archivo del libro descargado. Envíalo por WhatsApp, correo, etc.',
+          type: 'success',
+        });
+      }
+    } catch (err) {
+      toastDismiss();
+      console.error('Share failed:', err);
+      showToast({ message: 'Error al compartir el libro', type: 'error' });
+    }
   }
 
   private async handleExport() {

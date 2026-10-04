@@ -350,6 +350,73 @@ export async function exportFullBackup(): Promise<Blob> {
 }
 
 /**
+ * Exports a single book as a shareable ZIP in the same manifest format used by
+ * `restoreFullBackup`, so the receiving device can import it directly.
+ */
+export async function exportBookAsShareZip(bookId: number): Promise<Blob> {
+  const book = await getBook(bookId);
+  if (!book || !book.id) {
+    throw new Error('Publicación no encontrada');
+  }
+
+  const pages = await getBookPages(bookId);
+  if (pages.length === 0) {
+    throw new Error('El libro no tiene páginas que compartir');
+  }
+
+  const zip = new JSZip();
+  const bookFolder = zip.folder('books/book_shared');
+
+  const pagesMeta: Array<Omit<PageRecord, 'blob'>> = [];
+  for (const page of pages) {
+    const pageFileName = page.fileName || formatPageFileName(page.pageNumber);
+    if (bookFolder) {
+      bookFolder.file(pageFileName, page.blob);
+    }
+    pagesMeta.push({
+      id: page.id,
+      bookId: page.bookId,
+      pageNumber: page.pageNumber,
+      fileName: pageFileName,
+      width: page.width,
+      height: page.height,
+    });
+  }
+
+  const manifestData = {
+    version: 2,
+    type: 'book',
+    exportedAt: new Date().toISOString(),
+    folders: [],
+    books: [
+      {
+        id: book.id,
+        title: book.title,
+        description: book.description,
+        pageCount: book.pageCount,
+        primaryColor: book.primaryColor,
+        brandName: book.brandName,
+        hardCover: book.hardCover,
+        singlePageMode: book.singlePageMode,
+        folderId: null,
+        createdAt: book.createdAt,
+        updatedAt: book.updatedAt,
+        tempKey: 'book_shared',
+        pages: pagesMeta,
+      },
+    ],
+  };
+
+  zip.file('backup-manifest.json', JSON.stringify(manifestData, null, 2));
+
+  return await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 },
+  });
+}
+
+/**
  * Restores all books and pages from a backup ZIP file
  */
 export async function restoreFullBackup(

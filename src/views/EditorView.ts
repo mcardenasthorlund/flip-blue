@@ -3,6 +3,7 @@ import { formatPageFileName, getBook, getBookPages, saveBook } from '../db/db';
 import { exportBookAsZip } from '../utils/exportGenerator';
 import { showToast } from '../components/Toast';
 import { optimizeImageBlob, renderPdfToBlobs } from '../utils/mediaProcessor';
+import { generateCoverBlob } from '../utils/generateCover';
 import type { EditorPageState } from '../types';
 
 export interface EditorCallbacks {
@@ -21,6 +22,7 @@ export class EditorView {
   private brandName = '';
   private hardCover = true;
   private singlePageMode = false;
+  private generateCover = false;
   private autoOptimize = true;
   private isProcessingPdf = false;
   private pdfStatusText = '';
@@ -316,6 +318,16 @@ export class EditorView {
                 />
                 <span class="text-xs font-medium text-slate-700">Modo 1 página por defecto</span>
               </label>
+
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  id="ed-generate-cover-check"
+                  type="checkbox"
+                  ${this.generateCover ? 'checked' : ''}
+                  class="rounded text-[#2563EB] focus:ring-[#2563EB] h-4 w-4 border-slate-300"
+                />
+                <span class="text-xs font-medium text-slate-700">Generar portada genérica (nombre + descripción)</span>
+              </label>
             </div>
           </div>
         </div>
@@ -609,6 +621,14 @@ export class EditorView {
       });
     }
 
+    // Generate cover checkbox
+    const generateCoverCheck = this.container.querySelector<HTMLInputElement>('#ed-generate-cover-check');
+    if (generateCoverCheck) {
+      generateCoverCheck.addEventListener('change', (e) => {
+        this.generateCover = (e.target as HTMLInputElement).checked;
+      });
+    }
+
     // Auto optimize toggle
     const optimizeToggle = this.container.querySelector<HTMLInputElement>('#ed-optimize-toggle');
     if (optimizeToggle) {
@@ -860,11 +880,27 @@ export class EditorView {
     this.render();
 
     try {
-      const pageItems = this.pages.map((p) => ({
+      let pageItems = this.pages.map((p) => ({
         blob: p.blob,
         width: p.width,
         height: p.height,
       }));
+
+      if (this.generateCover) {
+        const first = this.pages[0];
+        const cover = await generateCoverBlob({
+          title: this.title,
+          description: this.description,
+          brandName: this.brandName,
+          primaryColor: this.primaryColor,
+          width: first?.width,
+          height: first?.height,
+        });
+        pageItems = [
+          { blob: cover.blob, width: cover.width, height: cover.height },
+          ...pageItems,
+        ];
+      }
 
       const savedBookId = await saveBook(
         {

@@ -4,6 +4,7 @@ import { showWelcomeIfNeeded } from './components/WelcomeModal';
 import { getAllBooks } from './db/db';
 import { initPWA, onUpdateAvailable } from './pwa';
 import { seedSampleBook } from './utils/sampleBook';
+import { registerIncomingBookHandler } from './utils/shareImport';
 import { DashboardView } from './views/DashboardView';
 import { EditorView } from './views/EditorView';
 import { ReaderView } from './views/ReaderView';
@@ -41,6 +42,16 @@ export class AppController {
           onClick: reload,
         },
       });
+    });
+
+    // 1c. Receive books opened via the OS "Abrir con FlipBlue" (File Handling API)
+    registerIncomingBookHandler((result) => {
+      showToast({
+        message: `¡Libro importado! ${result.booksRestored} libro y ${result.pagesRestored} páginas añadidos.`,
+        type: 'success',
+      });
+      this.setView('dashboard');
+      this.dashboardView.load();
     });
 
     // 3. Initialize Navbar

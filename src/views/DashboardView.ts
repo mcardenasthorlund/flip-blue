@@ -13,6 +13,7 @@ import {
   restoreFullBackup,
 } from '../db/db';
 import { exportBookAsZip } from '../utils/exportGenerator';
+import { shareBookFile } from '../utils/share';
 import { showToast } from '../components/Toast';
 import { showWelcome } from '../components/WelcomeModal';
 import type { BookRecord, FolderRecord } from '../types';
@@ -180,7 +181,7 @@ export class DashboardView {
               </svg>
               <span>Restaurar copia</span>
             </label>
-            <input type="file" id="dash-restore-input" accept=".zip,.flipbackup" class="hidden" />
+            <input type="file" id="dash-restore-input" accept=".zip,.flipbackup,.flipblue" class="hidden" />
           </div>
         </div>
 
@@ -382,7 +383,7 @@ export class DashboardView {
           </span>
         </div>
         <div class="flex items-center gap-1.5 text-xs text-slate-500">
-          <span class="text-[10px] font-mono text-slate-400">v0.6-beta</span>
+          <span class="text-[10px] font-mono text-slate-400">v0.8-beta</span>
           <span class="w-1 h-1 rounded-full bg-slate-300"></span>
           <span>
             Licencia
@@ -567,6 +568,16 @@ export class DashboardView {
                 </svg>
               </button>
 
+              <button data-action="share" title="Compartir libro con otro dispositivo (WhatsApp, correo...)" class="p-1.5 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+              </button>
+
               <button data-action="export" title="Exportar como paquete web ZIP autónomo" class="p-1.5 rounded text-slate-500 hover:text-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -671,6 +682,15 @@ export class DashboardView {
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="17 8 12 3 7 8"></polyline>
                   <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </button>
+              <button data-action="share" title="Compartir libro con otro dispositivo (WhatsApp, correo...)" class="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
                 </svg>
               </button>
               <button data-action="export" title="Exportar como paquete web ZIP autónomo" class="p-2 rounded-lg text-slate-500 hover:text-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer">
@@ -827,6 +847,8 @@ export class DashboardView {
             });
           } else if (action === 'export') {
             this.handleExport(bookId);
+          } else if (action === 'share') {
+            this.handleShare(bookId);
           } else if (action === 'delete') {
             this.handleDelete(bookId);
           }
@@ -1253,6 +1275,34 @@ export class DashboardView {
       toastDismiss();
       console.error('Export failed:', err);
       showToast({ message: 'Error al exportar el paquete del libro', type: 'error' });
+    }
+  }
+
+  private async handleShare(bookId: number) {
+    const book = this.books.find((b) => b.id === bookId);
+    if (!book) return;
+
+    const toastDismiss = showToast({
+      message: `Empaquetando "${book.title}" para compartir...`,
+      type: 'info',
+      duration: 0,
+    });
+
+    try {
+      const outcome = await shareBookFile(bookId, book.title);
+      toastDismiss();
+      if (outcome === 'shared') {
+        showToast({ message: '¡Compartición iniciada!', type: 'success' });
+      } else if (outcome === 'downloaded') {
+        showToast({
+          message: 'Archivo del libro descargado. Envíalo por WhatsApp, correo, etc.',
+          type: 'success',
+        });
+      }
+    } catch (err) {
+      toastDismiss();
+      console.error('Share failed:', err);
+      showToast({ message: 'Error al compartir el libro', type: 'error' });
     }
   }
 

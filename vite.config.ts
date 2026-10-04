@@ -22,6 +22,16 @@ export default defineConfig(() => {
           display: 'standalone',
           start_url: '/',
           scope: '/',
+          file_handlers: [
+            {
+              action: '/',
+              accept: {
+                'application/zip': ['.flipblue', '.zip'],
+                'application/x-flipblue': ['.flipblue'],
+                'application/octet-stream': ['.flipblue'],
+              },
+            },
+          ],
           icons: [
             {
               src: '/pwa-192x192.png',

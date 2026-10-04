@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import type { BookRecord, PageRecord } from '../types';
+import { generateThumbnailBlob } from './thumbnailGenerator';
 
 /**
  * Fetch vendor script content with fallback
@@ -25,8 +26,9 @@ function generateStandaloneHtml(book: BookRecord, pages: PageRecord[]): string {
       const isHard = useHard && (idx === 0 || idx === pages.length - 1);
       const density = isHard ? 'hard' : 'soft';
       const label = idx === 0 ? 'Portada' : idx === pages.length - 1 ? 'Contraportada' : `Página ${idx + 1}`;
+      const eager = idx < 3 ? 'eager' : 'lazy';
       return `      <div class="flip-page" data-density="${density}">
-        <img src="pages/${page.fileName}" alt="${label}" loading="eager" />
+        <img src="pages/${page.fileName}" alt="${label}" loading="${eager}" decoding="async" />
       </div>`;
     })
     .join('\n');
@@ -36,7 +38,7 @@ function generateStandaloneHtml(book: BookRecord, pages: PageRecord[]): string {
       (page, idx) => `
         <button class="thumb-btn" data-page="${idx}">
           <div class="thumb-box">
-            <img src="pages/${page.fileName}" alt="Pág ${idx + 1}" />
+            <img src="pages/thumbs/${page.fileName}" alt="Pág ${idx + 1}" loading="lazy" decoding="async" />
           </div>
           <span>${idx + 1}</span>
         </button>`
@@ -70,6 +72,12 @@ function generateStandaloneHtml(book: BookRecord, pages: PageRecord[]): string {
           <span id="progress-counter">0 / ${pages.length}</span>
         </div>
       </div>
+    </div>
+
+    <!-- Non-blocking background loading badge -->
+    <div id="bg-loading-badge" class="bg-loading-badge hidden">
+      <span class="bg-loading-spinner"></span>
+      <span id="bg-loading-text">Cargando páginas…</span>
     </div>
 
     <!-- Main Viewport for Panzoom & Reader -->
@@ -318,6 +326,65 @@ html, body {
 #progress-counter {
   font-weight: 700;
   color: var(--text-main);
+}
+
+/* Non-blocking background loading badge */
+.bg-loading-badge {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #F8FAFC;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 9999px;
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.bg-loading-badge.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.bg-loading-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  animation: bgspin 0.7s linear infinite;
+}
+
+@keyframes bgspin {
+  to { transform: rotate(360deg); }
+}
+
+/* Lazy placeholder for not-yet-loaded page images */
+.flip-page img:not([src]) {
+  background-color: #F1F5F9;
+}
+
+/* Overlay shown briefly while jumping to a not-yet-loaded page */
+.page-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1150;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* Viewport & Panzoom Layer */
@@ -701,6 +768,8 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
   const btnZoomReset = document.getElementById('btn-zoom-reset');
   const btnFullscreen = document.getElementById('btn-fullscreen');
 
+  const bgLoadingBadge = document.getElementById('bg-loading-badge');
+
   let pageFlip = null;
   let panzoom = null;
   let detectedRatio = 1.414;
@@ -712,41 +781,142 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
     .map((el) => el.outerHTML)
     .join('\\n');
 
-  // 1. Mandatory Pre-loading of all PNGs into browser cache
-  function preloadImages() {
-    return new Promise((resolve) => {
-      const pageImgs = Array.from(document.querySelectorAll('.flip-page img'));
-      let loadedCount = 0;
-      const total = pageImgs.length;
+  // ---- Progressive loading manager ---------------------------------------
+  // Instead of blocking until every image is decoded, we load the first few
+  // pages to start quickly, then prefetch the rest in the background while the
+  // reader is being used. Navigation waits for the target page if needed.
+  const PREFETCH_WINDOW = 4;
+  const STARTUP_PAGES = Math.min(3, totalPages);
 
-      if (total === 0) {
+  let pageImgs = Array.from(document.querySelectorAll('.flip-page img'));
+  let imageLoaded = new Array(totalPages).fill(false);
+  let backgroundDone = false;
+
+  function refreshPageImgs() {
+    pageImgs = Array.from(document.querySelectorAll('.flip-page img'));
+  }
+
+  function markLoaded(img) {
+    if (!img) return;
+    if (img.naturalWidth > 0 && img.naturalHeight > 0 && detectedRatio === 1.414) {
+      detectedRatio = img.naturalHeight / img.naturalWidth;
+    }
+  }
+
+  function waitForImage(index) {
+    return new Promise((resolve) => {
+      const img = pageImgs[index];
+      if (!img) {
         resolve();
         return;
       }
+      if (img.complete && img.naturalWidth > 0) {
+        imageLoaded[index] = true;
+        resolve();
+        return;
+      }
+      img.addEventListener('load', () => {
+        imageLoaded[index] = true;
+        markLoaded(img);
+        resolve();
+      });
+      img.addEventListener('error', () => {
+        imageLoaded[index] = true;
+        resolve();
+      });
+    });
+  }
 
-      function onSingleImageDone(img) {
-        loadedCount++;
-        if (img && img.naturalWidth > 0 && img.naturalHeight > 0 && detectedRatio === 1.414) {
-          detectedRatio = img.naturalHeight / img.naturalWidth;
-        }
-        const pct = Math.round((loadedCount / total) * 100);
-        if (progressBar) progressBar.style.width = pct + '%';
-        if (progressCounter) progressCounter.textContent = loadedCount + ' / ' + total;
-        if (progressText) progressText.textContent = 'Precargando ' + pct + '% en memoria...';
+  // Eagerly force a lazy image to load by touching its src.
+  function forceLoad(index) {
+    if (imageLoaded[index]) return;
+    const img = pageImgs[index];
+    if (!img) return;
+    if (img.loading === 'lazy' || !(img.complete && img.naturalWidth > 0)) {
+      img.loading = 'eager';
+      img.setAttribute('loading', 'eager');
+      // Reassigning the same src forces the fetch even for off-screen lazy
+      // images (changing the attribute after parse is otherwise a no-op).
+      const src = img.getAttribute('src');
+      if (src) img.src = src;
+    }
+  }
 
-        if (loadedCount >= total) {
-          setTimeout(resolve, 250);
+  function updateBgBadge() {
+    const loadedCount = imageLoaded.filter(Boolean).length;
+    if (!backgroundDone && loadedCount < totalPages) {
+      const pct = Math.round((loadedCount / totalPages) * 100);
+      if (bgLoadingBadge) {
+        bgLoadingBadge.classList.remove('hidden');
+        const txt = document.getElementById('bg-loading-text');
+        if (txt) txt.textContent = 'Cargando páginas… ' + pct + '%';
+      }
+      if (loadedCount >= totalPages) {
+        backgroundDone = true;
+        if (bgLoadingBadge) bgLoadingBadge.classList.add('hidden');
+      }
+    } else if (loadedCount >= totalPages && bgLoadingBadge) {
+      bgLoadingBadge.classList.add('hidden');
+    }
+  }
+
+  // Prefetch a range of pages (window around the current page) with low priority.
+  function prefetchRange(from, to) {
+    const start = Math.max(0, Math.min(from, totalPages - 1));
+    const end = Math.max(0, Math.min(to, totalPages - 1));
+    for (let i = start; i <= end; i++) {
+      if (!imageLoaded[i]) {
+        forceLoad(i);
+        waitForImage(i).then(updateBgBadge);
+      }
+    }
+  }
+
+  // Background sweep: load the remaining pages sequentially so everything is
+  // eventually cached, without blocking the reader.
+  function startBackgroundSweep() {
+    let cursor = STARTUP_PAGES;
+    function step() {
+      while (cursor < totalPages && imageLoaded[cursor]) cursor++;
+      if (cursor >= totalPages) {
+        updateBgBadge();
+        return;
+      }
+      forceLoad(cursor);
+      waitForImage(cursor).then(() => {
+        updateBgBadge();
+        scheduleStep();
+      });
+    }
+    function scheduleStep() {
+      if (window.requestIdleCallback) {
+        requestIdleCallback(step, { timeout: 400 });
+      } else {
+        setTimeout(step, 120);
+      }
+    }
+    scheduleStep();
+  }
+
+  // Startup: wait only for the first pages so the book renders immediately.
+  function preloadImages() {
+    return new Promise((resolve) => {
+      const first = Math.min(STARTUP_PAGES, totalPages);
+      let ready = 0;
+      if (first === 0) {
+        resolve();
+        return;
+      }
+      function onReady() {
+        ready++;
+        if (ready >= first) {
+          setTimeout(resolve, 200);
         }
       }
-
-      pageImgs.forEach((img) => {
-        if (img.complete && img.naturalWidth > 0) {
-          onSingleImageDone(img);
-        } else {
-          img.addEventListener('load', () => onSingleImageDone(img));
-          img.addEventListener('error', () => onSingleImageDone(img));
-        }
-      });
+      for (let i = 0; i < first; i++) {
+        forceLoad(i);
+        waitForImage(i).then(onReady);
+      }
     });
   }
 
@@ -823,6 +993,9 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
 
     pageFlip.loadFromHTML(document.querySelectorAll('.flip-page'));
 
+    refreshPageImgs();
+    prefetchRange(currentPageIndex - PREFETCH_WINDOW, currentPageIndex + PREFETCH_WINDOW);
+
     pageFlip.on('flip', (e) => {
       updatePageDisplay(Number(e.data));
     });
@@ -835,6 +1008,9 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
   function updatePageDisplay(pageIndex) {
     currentPageIndex = pageIndex;
     if (currPageLabel) currPageLabel.textContent = (pageIndex + 1);
+
+    // Prefetch pages around the current position for smooth sequential reading.
+    prefetchRange(currentPageIndex - PREFETCH_WINDOW, currentPageIndex + PREFETCH_WINDOW);
 
     if (thumbsTrack) {
       thumbsTrack.querySelectorAll('.thumb-btn').forEach((btn, idx) => {
@@ -906,11 +1082,50 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
   }
 
   // 4. Bind events
+  // Navigation guard: wait for the target page to be ready before flipping so
+  // the reader never shows a blank page, even when jumping far ahead.
+  let pageLoadingOverlay = null;
+
+  function showLoadingOverlay() {
+    if (pageLoadingOverlay) return pageLoadingOverlay;
+    pageLoadingOverlay = document.createElement('div');
+    pageLoadingOverlay.className = 'page-loading-overlay';
+    pageLoadingOverlay.innerHTML = '<span class="bg-loading-spinner"></span><span>Cargando página…</span>';
+    document.body.appendChild(pageLoadingOverlay);
+    return pageLoadingOverlay;
+  }
+
+  function hideLoadingOverlay() {
+    if (pageLoadingOverlay) {
+      pageLoadingOverlay.remove();
+      pageLoadingOverlay = null;
+    }
+  }
+
+  function goToPage(index) {
+    if (!pageFlip) return;
+    const target = Math.max(0, Math.min(totalPages - 1, index));
+    const img = pageImgs[target];
+    if (img && !(img.complete && img.naturalWidth > 0)) {
+      forceLoad(target);
+      showLoadingOverlay();
+      waitForImage(target).then(() => {
+        hideLoadingOverlay();
+        if (pageFlip) pageFlip.flip(target);
+      });
+    } else {
+      pageFlip.flip(target);
+    }
+  }
+
+  function goPrev() { goToPage(currentPageIndex - 1); }
+  function goNext() { goToPage(currentPageIndex + 1); }
+
   function bindEvents() {
-    if (btnPrev) btnPrev.addEventListener('click', () => pageFlip && pageFlip.flipPrev());
-    if (btnNext) btnNext.addEventListener('click', () => pageFlip && pageFlip.flipNext());
-    if (btnFirst) btnFirst.addEventListener('click', () => pageFlip && pageFlip.turnToPage(0));
-    if (btnLast) btnLast.addEventListener('click', () => pageFlip && pageFlip.turnToPage(totalPages - 1));
+    if (btnPrev) btnPrev.addEventListener('click', goPrev);
+    if (btnNext) btnNext.addEventListener('click', goNext);
+    if (btnFirst) btnFirst.addEventListener('click', () => goToPage(0));
+    if (btnLast) btnLast.addEventListener('click', () => goToPage(totalPages - 1));
 
     // Thumbnails toggle
     if (btnThumbs) {
@@ -932,8 +1147,8 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
       thumbsTrack.querySelectorAll('.thumb-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           const page = Number(btn.getAttribute('data-page'));
-          if (!isNaN(page) && pageFlip) {
-            pageFlip.flip(page);
+          if (!isNaN(page)) {
+            goToPage(page);
           }
         });
       });
@@ -961,13 +1176,13 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
     // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') {
-        pageFlip && pageFlip.flipPrev();
+        goPrev();
       } else if (e.key === 'ArrowRight') {
-        pageFlip && pageFlip.flipNext();
+        goNext();
       } else if (e.key === 'Home') {
-        pageFlip && pageFlip.turnToPage(0);
+        goToPage(0);
       } else if (e.key === 'End') {
-        pageFlip && pageFlip.turnToPage(totalPages - 1);
+        goToPage(totalPages - 1);
       } else if (e.key === 'Escape') {
         if (thumbsDrawer && thumbsDrawer.classList.contains('active')) {
           thumbsDrawer.classList.remove('active');
@@ -994,6 +1209,9 @@ function generateStandaloneJs(book: BookRecord, totalPages: number): string {
     initFlipbook(0);
     initPanzoom();
     bindEvents();
+    // Prefetch the initial window and load the rest in the background.
+    prefetchRange(0, PREFETCH_WINDOW);
+    startBackgroundSweep();
   });
 })();
 `;
@@ -1054,6 +1272,20 @@ export async function exportBookAsZip(
   pages.forEach((page) => {
     pagesFolder.file(page.fileName, page.blob);
   });
+
+  // 7. Generate lightweight thumbnails for the navigation drawer
+  const thumbsFolder = zip.folder('pages/thumbs')!;
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    const pct = Math.round((i / pages.length) * 10);
+    onProgress?.(60 + pct, `Generando miniaturas… ${i + 1}/${pages.length}`);
+    try {
+      const thumb = await generateThumbnailBlob(page.blob, 160);
+      thumbsFolder.file(page.fileName, thumb);
+    } catch (err) {
+      console.warn('Thumbnail generation failed for', page.fileName, err);
+    }
+  }
 
   // 7. Generate ZIP blob
   onProgress?.(80, 'Comprimiendo archivo ZIP...');
